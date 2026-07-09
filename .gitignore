@@ -1,0 +1,16 @@
+# secrets & local data — never commit
+.env
+kb.json
+
+# python
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# os / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

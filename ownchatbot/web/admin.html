@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>ownchatbot — build your website chatbot</title>
+<style>
+  :root{--bg:#0e0f1a;--panel:#171a2b;--bd:#2a2e45;--fg:#e8eaf6;--dim:#9aa0c0;--acc:#6c7bff;--ok:#34d399}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+  .wrap{max-width:760px;margin:0 auto;padding:32px 18px 80px}
+  h1{font-size:24px;margin:0 0 4px}h1 span{color:var(--acc)}
+  .sub{color:var(--dim);margin:0 0 22px}
+  .card{background:var(--panel);border:1px solid var(--bd);border-radius:14px;padding:18px;margin-bottom:16px}
+  label{display:block;font-size:12.5px;color:var(--dim);margin:10px 0 5px}
+  input,button{font:inherit}
+  input[type=text],input[type=number]{width:100%;padding:10px 12px;border-radius:9px;border:1px solid var(--bd);background:#10121f;color:var(--fg)}
+  .row{display:flex;gap:10px;flex-wrap:wrap}.row>div{flex:1;min-width:130px}
+  button{cursor:pointer;border:0;border-radius:9px;padding:11px 16px;font-weight:600}
+  .primary{background:var(--acc);color:#fff}.primary:disabled{opacity:.5;cursor:default}
+  .ghost{background:transparent;border:1px solid var(--bd);color:var(--fg)}
+  pre{background:#0a0b14;border:1px solid var(--bd);border-radius:10px;padding:13px;overflow:auto;font-size:12.5px;white-space:pre-wrap;word-break:break-all}
+  .pill{display:inline-block;font-size:11.5px;padding:3px 9px;border-radius:999px;border:1px solid var(--bd);color:var(--dim)}
+  .pill.ok{border-color:var(--ok);color:var(--ok)}
+  .q{padding:7px 0;border-top:1px solid var(--bd);font-size:13.5px}
+  .muted{color:var(--dim);font-size:12.5px}
+  a{color:var(--acc)}
+  .hide{display:none}
+  #status{margin-bottom:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🤖 own<span>chatbot</span></h1>
+  <p class="sub">Point it at your website → it builds a Q&amp;A knowledge base → you get a chat widget to embed. Self-hosted, no lock-in.</p>
+
+  <div id="status" class="muted"></div>
+
+  <div class="card">
+    <label>Your website URL</label>
+    <input id="url" type="text" placeholder="https://example.com" autocomplete="off"/>
+    <div class="row">
+      <div><label>Chatbot name (optional)</label><input id="product" type="text" placeholder="Acme Support"/></div>
+      <div><label>Pages to crawl</label><input id="pages" type="number" value="8" min="1" max="30"/></div>
+    </div>
+    <div style="margin-top:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <button id="build" class="primary" onclick="build()">Build my chatbot</button>
+      <span id="busy" class="muted hide">⏳ crawling &amp; generating… (10–40s)</span>
+    </div>
+  </div>
+
+  <div id="result" class="card hide">
+    <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap">
+      <b id="rtitle">Done</b><span id="rmeta" class="pill"></span>
+      <span style="flex:1"></span>
+      <a href="/demo" target="_blank"><button class="ghost">▶ Test it live</button></a>
+    </div>
+    <label style="margin-top:14px">Embed on your site — paste before <code>&lt;/body&gt;</code></label>
+    <pre id="snippet"></pre>
+    <button class="ghost" onclick="copySnippet()">📋 Copy snippet</button>
+    <div id="qs" style="margin-top:16px"></div>
+  </div>
+
+  <p class="muted">Tip: no API key? Install <a href="https://ollama.com/download" target="_blank">Ollama</a> (runs locally, free) or drop a free <a href="https://console.groq.com/keys" target="_blank">Groq</a> key in <code>.env</code>. Without any LLM it still answers from the best-matching Q&amp;A.</p>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const BASE=location.origin;
+function snippetFor(product){
+  return `<script src="${BASE}/aifaqchat.js"\n        data-ask="${BASE}/api/faq/ask"\n        data-kb="${BASE}/faq.json"\n        data-product="${(product||'Support').replace(/"/g,'')}"\n        data-accent="#6c7bff"\n        defer><\/script>`;
+}
+async function refreshStatus(){
+  try{ const s=await (await fetch('/api/status')).json();
+    $('status').innerHTML = `<span class="pill ${s.llm?'ok':''}">${s.llm?('LLM: '+s.llm):'No LLM — KB match mode'}</span> `
+      + (s.count?`<span class="pill">KB: ${s.count} Q&A · ${s.product||''}</span>`:'<span class="pill">KB empty — build one below</span>');
+    if(s.count){ $('rtitle').textContent='Current chatbot'; $('rmeta').textContent=s.count+' Q&A';
+      $('snippet').textContent=snippetFor(s.product); $('result').classList.remove('hide'); }
+  }catch(e){}
+}
+async function build(){
+  const url=$('url').value.trim(); if(!url){ $('url').focus(); return; }
+  $('build').disabled=true; $('busy').classList.remove('hide'); $('result').classList.add('hide');
+  try{
+    const r=await fetch('/api/build',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({url, product:$('product').value.trim(), max_pages:Number($('pages').value)||8})});
+    const d=await r.json();
+    if(!r.ok||d.error){ alert(d.error||'Build failed'); return; }
+    $('rtitle').textContent='✅ '+d.product;
+    $('rmeta').textContent=`${d.count} Q&A · ${d.pages} pages${d.ai?' · AI-generated':' · keyword KB'}`;
+    $('snippet').textContent=snippetFor(d.product);
+    $('qs').innerHTML='<div class="muted">Questions it can answer:</div>'+d.questions.map(q=>`<div class="q">• ${q.replace(/</g,'&lt;')}</div>`).join('');
+    $('result').classList.remove('hide');
+    loadWidget(d.product);
+  }catch(e){ alert('Error: '+e.message); }
+  finally{ $('build').disabled=false; $('busy').classList.add('hide'); }
+}
+function copySnippet(){ navigator.clipboard.writeText($('snippet').textContent).then(()=>{ const b=event.target; const t=b.textContent; b.textContent='✓ Copied'; setTimeout(()=>b.textContent=t,1200); }); }
+// live widget on this admin page so you can try immediately
+let _w=null;
+function loadWidget(product){ if(_w)_w.remove(); document.querySelectorAll('.afc-root,.afc-launch,.afc-panel').forEach(e=>e.remove());
+  _w=document.createElement('script'); _w.src='/aifaqchat.js';
+  _w.setAttribute('data-ask','/api/faq/ask'); _w.setAttribute('data-kb','/faq.json');
+  _w.setAttribute('data-product',product||'Support'); _w.setAttribute('data-accent','#6c7bff'); _w.defer=true;
+  document.body.appendChild(_w); }
+refreshStatus().then(()=>{ fetch('/api/status').then(r=>r.json()).then(s=>{ if(s.count) loadWidget(s.product); }); });
+</script>
+</body>
+</html>

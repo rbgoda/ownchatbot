@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Demo site — ownchatbot</title>
+<style>
+  body{margin:0;font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#1a1c2e;background:#fafbff}
+  .hero{background:linear-gradient(135deg,#6c7bff,#34d399);color:#fff;padding:70px 20px;text-align:center}
+  .hero h1{font-size:34px;margin:0 0 8px}
+  .wrap{max-width:720px;margin:0 auto;padding:30px 20px}
+  h2{margin-top:34px}
+  .note{background:#eef0ff;border:1px solid #d7dcff;border-radius:12px;padding:14px 16px;color:#3a3f66}
+</style>
+</head>
+<body>
+  <div class="hero"><h1>Acme Widgets</h1><p>This is a pretend customer website.</p></div>
+  <div class="wrap">
+    <div class="note">👉 Look bottom-right — that chat bubble is <b>your ownchatbot</b>, answering from the knowledge base you just built. Ask it anything about the site you crawled.</div>
+    <h2>About</h2>
+    <p>Everything on this page is filler. The only thing that matters is the little chat launcher in the corner — it is exactly what your visitors will see once you paste the embed snippet on your real site.</p>
+    <h2>How the embed works</h2>
+    <p>One <code>&lt;script&gt;</code> tag loads the widget, points it at your knowledge base (<code>/faq.json</code>) and the grounded-answer endpoint (<code>/api/faq/ask</code>). No iframe, no build step.</p>
+  </div>
+
+  <!-- the ownchatbot widget (same snippet you copy from the admin page) -->
+  <script src="/aifaqchat.js"
+          data-ask="/api/faq/ask"
+          data-kb="/faq.json"
+          data-product="Acme Support"
+          data-accent="#6c7bff"
+          defer></script>
+</body>
+</html>
