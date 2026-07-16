@@ -37,6 +37,26 @@
   <div id="status" class="muted"></div>
 
   <div class="card">
+    <div style="display:flex;align-items:center;gap:9px"><b>🧠 AI backend</b>
+      <span id="llmactive" class="pill" style="margin-left:auto"></span></div>
+    <div class="row" style="margin-top:10px">
+      <div><label>Provider</label>
+        <select id="prov" onchange="onProv()" style="width:100%;padding:10px 12px;border-radius:9px;border:1px solid var(--bd);background:#10121f;color:var(--fg)"></select></div>
+      <div><label>Model</label>
+        <input id="model" list="models" type="text" placeholder="default"/><datalist id="models"></datalist></div>
+    </div>
+    <label>API key <span id="keyhint" class="muted"></span></label>
+    <input id="key" type="password" placeholder="paste your key" autocomplete="off"/>
+    <div style="margin-top:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <button class="ghost" onclick="testKey()">🔌 Test my key</button>
+      <button class="primary" onclick="saveKey()">Save</button>
+      <button class="ghost" onclick="clearKey()" title="Revert to .env / no LLM">Reset</button>
+      <span id="llmmsg" class="muted"></span>
+    </div>
+    <p class="muted" id="provnote" style="margin:10px 0 0"></p>
+  </div>
+
+  <div class="card">
     <label>Your website URL</label>
     <input id="url" type="text" placeholder="https://example.com" autocomplete="off"/>
     <div class="row">
@@ -69,6 +89,52 @@ const $=id=>document.getElementById(id);
 const BASE=location.origin;
 function snippetFor(product){
   return `<script src="${BASE}/aifaqchat.js"\n        data-ask="${BASE}/api/faq/ask"\n        data-kb="${BASE}/faq.json"\n        data-product="${(product||'Support').replace(/"/g,'')}"\n        data-accent="#6c7bff"\n        defer><\/script>`;
+}
+/* ── AI backend config ── */
+let PROVIDERS=[], ACTIVE={};
+function provById(id){ return PROVIDERS.find(p=>p.name===id)||{}; }
+async function loadProviders(){
+  const r=await (await fetch('/api/llm/providers')).json();
+  PROVIDERS=r.providers||[]; ACTIVE=r.active||{};
+  $('prov').innerHTML=PROVIDERS.map(p=>`<option value="${p.name}">${p.label}${p.free==='yes'?' · free/local':(p.free==='tier'?' · free tier':'')}</option>`).join("");
+  $('prov').value = ACTIVE.provider || (PROVIDERS[0]&&PROVIDERS[0].name) || 'openai';
+  onProv(); renderActive();
+}
+function renderActive(){
+  const a=ACTIVE;
+  $('llmactive').textContent = a.usable ? `● ${a.provider} · ${a.model||''}` : 'no LLM — KB match mode';
+  $('llmactive').className = 'pill' + (a.usable?' ok':'');
+}
+function onProv(){
+  const p=provById($('prov').value);
+  $('models').innerHTML=(p.models||[]).map(m=>`<option value="${m}">`).join("");
+  $('model').placeholder = p.model || 'default';
+  if(ACTIVE.provider===p.name && ACTIVE.model) $('model').value=ACTIVE.model; else $('model').value='';
+  $('keyhint').textContent = p.needs_key===false ? '(not needed for '+p.name+')' : (p.env_key_set?'(a key is already set in .env)':'');
+  $('key').style.display = p.needs_key===false ? 'none' : '';
+  $('provnote').innerHTML = (p.note||'') + (p.signup?` <a href="${p.signup}" target="_blank">Get a key →</a>`:'');
+}
+function _payload(){ return {provider:$('prov').value, key:$('key').value.trim(), model:$('model').value.trim()}; }
+async function testKey(){
+  const msg=$('llmmsg'); msg.textContent='🔌 testing…'; msg.style.color='';
+  try{ const d=await (await fetch('/api/llm/test',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(_payload())})).json();
+    if(d.ok){ msg.textContent=`✅ works — ${d.model} replied “${d.reply}”`; msg.style.color='var(--ok)'; }
+    else { msg.textContent='❌ '+(d.error||'failed'); msg.style.color='#ff8a8a'; }
+  }catch(e){ msg.textContent='❌ '+e.message; msg.style.color='#ff8a8a'; }
+}
+async function saveKey(){
+  const msg=$('llmmsg');
+  try{ const d=await (await fetch('/api/llm/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(_payload())})).json();
+    if(!d.ok){ msg.textContent='❌ '+(d.error||'failed'); msg.style.color='#ff8a8a'; return; }
+    $('key').value=''; ACTIVE={provider:d.provider,model:d.model,usable:d.usable}; renderActive();
+    msg.textContent = d.usable?'💾 saved — the chatbot now uses '+d.provider:'💾 saved (add a key to activate)'; msg.style.color='var(--ok)';
+    refreshStatus();
+  }catch(e){ msg.textContent='❌ '+e.message; msg.style.color='#ff8a8a'; }
+}
+async function clearKey(){
+  const d=await (await fetch('/api/llm/clear',{method:'POST'})).json();
+  ACTIVE={provider:d.provider,model:null,usable:d.usable}; $('key').value=''; renderActive(); onProv();
+  $('llmmsg').textContent='↩︎ reverted to .env'; $('llmmsg').style.color=''; refreshStatus();
 }
 async function refreshStatus(){
   try{ const s=await (await fetch('/api/status')).json();
@@ -103,6 +169,7 @@ function loadWidget(product){ if(_w)_w.remove(); document.querySelectorAll('.afc
   _w.setAttribute('data-ask','/api/faq/ask'); _w.setAttribute('data-kb','/faq.json');
   _w.setAttribute('data-product',product||'Support'); _w.setAttribute('data-accent','#6c7bff'); _w.defer=true;
   document.body.appendChild(_w); }
+loadProviders().catch(()=>{});
 refreshStatus().then(()=>{ fetch('/api/status').then(r=>r.json()).then(s=>{ if(s.count) loadWidget(s.product); }); });
 </script>
 </body>

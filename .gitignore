@@ -1,6 +1,7 @@
 # secrets & local data — never commit
 .env
 kb.json
+llm.json
 
 # python
 .venv/

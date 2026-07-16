@@ -46,7 +46,15 @@ The first run creates a virtual environment and installs the dependencies
 ## Add an LLM (optional but recommended)
 
 Without an LLM the bot returns the closest Q&A. For natural, grounded answers,
-copy `.env.example` → `.env` and set **one** provider:
+add one — **two ways**:
+
+**A) In the admin page (easiest).** Open http://localhost:8200, use the
+**🧠 AI backend** panel: pick a provider (ChatGPT, Claude, …), paste your key,
+click **🔌 Test my key**, then **Save**. It takes effect immediately — no
+restart. Your key is stored locally in `llm.json` (git-ignored) and never shown
+back in the browser.
+
+**B) In `.env`.** Copy `.env.example` → `.env` and set **one** provider:
 
 ```ini
 # ChatGPT (OpenAI):
