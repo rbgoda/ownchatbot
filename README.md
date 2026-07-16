@@ -49,13 +49,23 @@ Without an LLM the bot returns the closest Q&A. For natural, grounded answers,
 copy `.env.example` → `.env` and set **one** provider:
 
 ```ini
-# free + local, no key:
-LLM_PROVIDER=ollama
-OLLAMA_MODEL=llama3.2:1b
-# …or a free hosted key:
-# LLM_PROVIDER=groq
-# GROQ_API_KEY=gsk_xxx
+# ChatGPT (OpenAI):
+LLM_PROVIDER=openai
+OPENAI_API_KEY=sk-...
+OPENAI_MODEL=gpt-4o-mini
+
+# …or Claude (Anthropic — via its OpenAI-compatible endpoint):
+# LLM_PROVIDER=anthropic
+# ANTHROPIC_API_KEY=sk-ant-...
+# ANTHROPIC_MODEL=claude-3-5-haiku-latest
+
+# …or free/local: LLM_PROVIDER=ollama (no key) · groq · gemini · openrouter
 ```
+
+Supported providers: **openai** (ChatGPT), **anthropic** (Claude), ollama,
+groq, gemini, openrouter, cerebras, mistral, qwen, deepseek. Any
+OpenAI-compatible endpoint works — set `LLM_PROVIDER` plus that provider's
+`*_API_KEY` (and optional `*_MODEL` / `*_BASE_URL`).
 
 Restart `run.sh` / `run.ps1` after editing `.env`.
 

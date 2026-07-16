@@ -34,6 +34,18 @@ _load_env(ROOT / ".env")
 # ── provider registry ────────────────────────────────────────────────────────
 # free: "yes" (no cost at all) · "tier" (generous free tier) · "paid"
 PROVIDERS = {
+    "openai": {
+        "label": "OpenAI (ChatGPT)", "base": "https://api.openai.com/v1", "key_env": "OPENAI_API_KEY",
+        "model": "gpt-4o-mini", "free": "paid", "signup": "https://platform.openai.com/api-keys",
+        "models": ["gpt-4o-mini", "gpt-4o", "gpt-4.1-mini", "gpt-4.1", "o4-mini"],
+        "note": "ChatGPT models, native OpenAI API. gpt-4o-mini is cheap + great for FAQ. Key at platform.openai.com/api-keys.",
+    },
+    "anthropic": {
+        "label": "Anthropic (Claude)", "base": "https://api.anthropic.com/v1", "key_env": "ANTHROPIC_API_KEY",
+        "model": "claude-3-5-haiku-latest", "free": "paid", "signup": "https://console.anthropic.com/settings/keys",
+        "models": ["claude-3-5-haiku-latest", "claude-3-5-sonnet-latest", "claude-sonnet-4-20250514", "claude-opus-4-20250514"],
+        "note": "Claude via Anthropic's OpenAI-compatible endpoint (Bearer auth). Haiku is fast + cheap. Key at console.anthropic.com.",
+    },
     "ollama": {
         "label": "Ollama (local)", "base": "http://localhost:11434/v1", "key_env": None,
         "model": "llama3.2:1b", "free": "yes", "signup": "https://ollama.com/download",
