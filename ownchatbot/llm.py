@@ -39,12 +39,14 @@ PROVIDERS = {
         "model": "gpt-4o-mini", "free": "paid", "signup": "https://platform.openai.com/api-keys",
         "models": ["gpt-4o-mini", "gpt-4o", "gpt-4.1-mini", "gpt-4.1", "o4-mini"],
         "note": "ChatGPT models, native OpenAI API. gpt-4o-mini is cheap + great for FAQ. Key at platform.openai.com/api-keys.",
+        "price": {"in": 0.15, "out": 0.60},   # gpt-4o-mini, USD / 1M tokens (approx)
     },
     "anthropic": {
         "label": "Anthropic (Claude)", "base": "https://api.anthropic.com/v1", "key_env": "ANTHROPIC_API_KEY",
         "model": "claude-3-5-haiku-latest", "free": "paid", "signup": "https://console.anthropic.com/settings/keys",
         "models": ["claude-3-5-haiku-latest", "claude-3-5-sonnet-latest", "claude-sonnet-4-20250514", "claude-opus-4-20250514"],
         "note": "Claude via Anthropic's OpenAI-compatible endpoint (Bearer auth). Haiku is fast + cheap. Key at console.anthropic.com.",
+        "price": {"in": 0.80, "out": 4.00},   # claude-3-5-haiku, USD / 1M tokens (approx)
     },
     "ollama": {
         "label": "Ollama (local)", "base": "http://localhost:11434/v1", "key_env": None,
@@ -97,6 +99,7 @@ PROVIDERS = {
         "model": "deepseek-chat", "free": "paid", "signup": "https://platform.deepseek.com",
         "models": ["deepseek-chat", "deepseek-reasoner"],
         "note": "Low-cost, strong quality.",
+        "price": {"in": 0.28, "out": 0.42},   # deepseek-chat, USD / 1M tokens (approx)
     },
 }
 
@@ -112,6 +115,7 @@ def providers_meta() -> list[dict]:
             "name": name, "label": p["label"], "free": p["free"], "needs_key": p["key_env"] is not None,
             "signup": p["signup"], "model": p["model"], "models": p["models"], "note": p["note"],
             "env_key_set": bool(p["key_env"] and os.environ.get(p["key_env"], "").strip()),
+            "price": p.get("price"),   # {in,out} USD per 1M tokens for the default model (rough), or None
         })
     return out
 

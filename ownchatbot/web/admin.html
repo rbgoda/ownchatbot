@@ -27,6 +27,11 @@
   a{color:var(--acc)}
   .hide{display:none}
   #status{margin-bottom:14px}
+  .dot{font-size:15px;line-height:1;cursor:pointer}
+  .dot.green{color:var(--ok)}.dot.red{color:#ff6b6b}.dot.gray{color:#5a5f7a}
+  .dot.checking{color:#f5c842;animation:pulse 1s ease-in-out infinite}
+  @keyframes pulse{50%{opacity:.35}}
+  #costhint{margin:6px 0 0}
 </style>
 </head>
 <body>
@@ -38,6 +43,7 @@
 
   <div class="card">
     <div style="display:flex;align-items:center;gap:9px"><b>🧠 AI backend</b>
+      <span id="hdot" class="dot gray" onclick="pollHealth()" title="click to re-check">●</span>
       <span id="llmactive" class="pill" style="margin-left:auto"></span></div>
     <div class="row" style="margin-top:10px">
       <div><label>Provider</label>
@@ -54,6 +60,7 @@
       <span id="llmmsg" class="muted"></span>
     </div>
     <p class="muted" id="provnote" style="margin:10px 0 0"></p>
+    <p class="muted" id="costhint"></p>
   </div>
 
   <div class="card">
@@ -102,8 +109,18 @@ async function loadProviders(){
 }
 function renderActive(){
   const a=ACTIVE;
-  $('llmactive').textContent = a.usable ? `● ${a.provider} · ${a.model||''}` : 'no LLM — KB match mode';
+  $('llmactive').textContent = a.usable ? `${a.provider} · ${a.model||''}` : 'no LLM — KB match mode';
   $('llmactive').className = 'pill' + (a.usable?' ok':'');
+}
+// rough per-answer estimate: a grounded answer ≈ this many tokens in/out
+const EST_IN=700, EST_OUT=220;
+function estCost(p){
+  const tot=EST_IN+EST_OUT;
+  if(p.name==='ollama') return `≈ ${tot} tokens/answer · <b>free</b> (runs on your machine)`;
+  if(!p.price) return `≈ ${tot} tokens/answer · ${p.free==='tier'?'<b>free tier</b>':'cost varies by model'}`;
+  const per1k=(EST_IN*p.price.in + EST_OUT*p.price.out)/1e6*1000;
+  const money=per1k<0.01?'<$0.01':('$'+per1k.toFixed(2));
+  return `≈ ${tot} tokens/answer · ~<b>${money}</b> per 1,000 answers <span style="opacity:.65">(${p.model}, rough)</span>`;
 }
 function onProv(){
   const p=provById($('prov').value);
@@ -113,7 +130,22 @@ function onProv(){
   $('keyhint').textContent = p.needs_key===false ? '(not needed for '+p.name+')' : (p.env_key_set?'(a key is already set in .env)':'');
   $('key').style.display = p.needs_key===false ? 'none' : '';
   $('provnote').innerHTML = (p.note||'') + (p.signup?` <a href="${p.signup}" target="_blank">Get a key →</a>`:'');
+  $('costhint').innerHTML = '💸 ' + estCost(p);
 }
+/* ── live connected-health dot (polls the active backend) ── */
+let _hz=null;
+function setDot(state, title){ const d=$('hdot'); if(!d)return; d.textContent='●'; d.className='dot '+state; d.title=title||''; }
+async function pollHealth(){
+  setDot('checking','checking…');
+  try{ const h=await (await fetch('/api/llm/health')).json();
+    if(!h.configured) setDot('gray','No LLM configured — answers come from best-matching Q&A');
+    else if(h.ok) setDot('green', `Connected · ${h.provider} · ${h.model}${h.ms?` · ${h.ms}ms`:''}`);
+    else setDot('red', `Not connected — ${h.error||'unreachable'}`);
+  }catch(e){ setDot('red','health check failed'); }
+}
+function startHealth(){ pollHealth(); clearInterval(_hz);
+  _hz=setInterval(()=>{ if(document.visibilityState==='visible') pollHealth(); }, 120000); }  // every 2 min, paused when tab hidden
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') pollHealth(); });
 function _payload(){ return {provider:$('prov').value, key:$('key').value.trim(), model:$('model').value.trim()}; }
 async function testKey(){
   const msg=$('llmmsg'); msg.textContent='🔌 testing…'; msg.style.color='';
@@ -128,13 +160,13 @@ async function saveKey(){
     if(!d.ok){ msg.textContent='❌ '+(d.error||'failed'); msg.style.color='#ff8a8a'; return; }
     $('key').value=''; ACTIVE={provider:d.provider,model:d.model,usable:d.usable}; renderActive();
     msg.textContent = d.usable?'💾 saved — the chatbot now uses '+d.provider:'💾 saved (add a key to activate)'; msg.style.color='var(--ok)';
-    refreshStatus();
+    refreshStatus(); pollHealth();
   }catch(e){ msg.textContent='❌ '+e.message; msg.style.color='#ff8a8a'; }
 }
 async function clearKey(){
   const d=await (await fetch('/api/llm/clear',{method:'POST'})).json();
   ACTIVE={provider:d.provider,model:null,usable:d.usable}; $('key').value=''; renderActive(); onProv();
-  $('llmmsg').textContent='↩︎ reverted to .env'; $('llmmsg').style.color=''; refreshStatus();
+  $('llmmsg').textContent='↩︎ reverted to .env'; $('llmmsg').style.color=''; refreshStatus(); pollHealth();
 }
 async function refreshStatus(){
   try{ const s=await (await fetch('/api/status')).json();
@@ -169,7 +201,7 @@ function loadWidget(product){ if(_w)_w.remove(); document.querySelectorAll('.afc
   _w.setAttribute('data-ask','/api/faq/ask'); _w.setAttribute('data-kb','/faq.json');
   _w.setAttribute('data-product',product||'Support'); _w.setAttribute('data-accent','#6c7bff'); _w.defer=true;
   document.body.appendChild(_w); }
-loadProviders().catch(()=>{});
+loadProviders().then(startHealth).catch(()=>{});
 refreshStatus().then(()=>{ fetch('/api/status').then(r=>r.json()).then(s=>{ if(s.count) loadWidget(s.product); }); });
 </script>
 </body>

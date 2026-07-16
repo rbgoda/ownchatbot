@@ -211,6 +211,23 @@ def llm_clear():
     return {"ok": True, "provider": (cfg or {}).get("name"), "usable": bool(llm.usable(cfg))}
 
 
+@app.get("/api/llm/health")
+def llm_health():
+    """Live health check of the ACTIVE backend (drives the connected dot)."""
+    import time
+    cfg = active_cfg()
+    if not llm.usable(cfg):
+        return {"configured": False, "ok": False}
+    t0 = time.monotonic()
+    try:
+        llm.chat("You are a health check. Reply with: ok", "ping", cfg=cfg, max_tokens=3)
+        return {"configured": True, "ok": True, "provider": cfg["name"], "model": cfg["model"],
+                "ms": int((time.monotonic() - t0) * 1000)}
+    except Exception as e:  # noqa: BLE001
+        return {"configured": True, "ok": False, "provider": cfg["name"], "model": cfg["model"],
+                "error": _friendly_llm_error(e)}
+
+
 class BuildIn(BaseModel):
     url: str = Field(min_length=4, max_length=2000)
     product: str = Field(default="", max_length=80)
